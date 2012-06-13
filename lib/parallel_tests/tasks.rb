@@ -1,5 +1,5 @@
 namespace :parallel do
-  rails_env = ENV['RAILS_ENV'] || 'test'
+  padrino_env = 'test'
 
   def run_in_parallel(cmd, options)
     count = "-n #{options[:count]}" if options[:count]
@@ -8,49 +8,49 @@ namespace :parallel do
     abort unless system(command)
   end
 
-  desc "create test databases via db:create --> parallel:create[num_cpus]"
+  desc "create test databases via ar:create --> parallel:create[num_cpus]"
   task :create, :count do |t,args|
-    run_in_parallel("rake db:create RAILS_ENV=#{rails_env}", args)
+    run_in_parallel("rake ar:create PADRINO_ENV=#{padrino_env}", args)
   end
 
-  desc "drop test databases via db:drop --> parallel:drop[num_cpus]"
+  desc "drop test databases via ar:drop --> parallel:drop[num_cpus]"
   task :drop, :count do |t,args|
-    run_in_parallel("rake db:drop RAILS_ENV=#{rails_env}", args)
+    run_in_parallel("rake ar:drop PADRINO_ENV=#{padrino_env}", args)
   end
 
   desc "update test databases by dumping and loading --> parallel:prepare[num_cpus]"
-  task(:prepare, [:count] => 'db:abort_if_pending_migrations') do |t,args|
+  task(:prepare, [:count] => 'ar:abort_if_pending_migrations') do |t,args|
     if defined?(ActiveRecord) && ActiveRecord::Base.schema_format == :ruby
       # dump then load in parallel
-      Rake::Task['db:schema:dump'].invoke
+      Rake::Task['ar:schema:dump'].invoke
       Rake::Task['parallel:load_schema'].invoke(args[:count])
     else
       # there is no separate dump / load for schema_format :sql -> do it safe and slow
       args = args.to_hash.merge(:non_parallel => true) # normal merge returns nil
-      run_in_parallel('rake db:test:prepare --trace', args)
+      run_in_parallel('rake ar:test:prepare --trace', args)
     end
   end
 
   # when dumping/resetting takes too long
-  desc "update test databases via db:migrate --> parallel:migrate[num_cpus]"
+  desc "update test databases via ar:migrate --> parallel:migrate[num_cpus]"
   task :migrate, :count do |t,args|
-    run_in_parallel("rake db:migrate RAILS_ENV=#{rails_env}", args)
+    run_in_parallel("rake ar:migrate PADRINO_ENV=#{padrino_env}", args)
   end
 
   # just load the schema (good for integration server <-> no development db)
-  desc "load dumped schema for test databases via db:schema:load --> parallel:load_schema[num_cpus]"
+  desc "load dumped schema for test databases via ar:schema:load --> parallel:load_schema[num_cpus]"
   task :load_schema, :count do |t,args|
-    run_in_parallel("rake db:schema:load RAILS_ENV=#{rails_env}", args)
+    run_in_parallel("rake ar:schema:load PADRINO_ENV=#{padrino_env}", args)
   end
 
-  desc "load the seed data from db/seeds.rb via db:seed --> parallel:seed[num_cpus]"
+  desc "load the seed data from db/seeds.rb via ar:seed --> parallel:seed[num_cpus]"
   task :seed, :count do |t,args|
-    run_in_parallel("rake db:seed RAILS_ENV=#{rails_env}", args)
+    run_in_parallel("rake ar:seed PADRINO_ENV=#{padrino_env}", args)
   end
 
   ['test', 'spec', 'features'].each do |type|
     desc "run #{type} in parallel with parallel:#{type}[num_cpus]"
-    task type, [:count, :pattern, :options] => 'db:abort_if_pending_migrations' do |t,args|
+    task type, [:count, :pattern, :options] => 'ar:abort_if_pending_migrations' do |t,args|
       $LOAD_PATH << File.expand_path(File.join(File.dirname(__FILE__), '..'))
       require "parallel_tests"
       count, pattern, options = ParallelTests.parse_rake_args(args)
